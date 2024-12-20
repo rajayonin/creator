@@ -97,7 +97,7 @@ var compileError = {
   'm24': function(ret) { return "After the comma you should go a blank --> " + ret.token + "" },
 //'m25': function(ret) { return "Incorrect syntax "                          + ret.token + "" },
   'm26': function(ret) { return "Syntax error near line: "                   + ret.token + "" },
-  'm27': function(ret) { return "Please check instruction syntax, inmediate ranges, register name, etc."}
+  'm27': function(ret) { return "Please check instruction syntax, inmediate ranges, register name, etc."},
 } ;
 /*Promise*/
 let promise;
@@ -151,6 +151,8 @@ function load_arch_select ( cfg ) //TODO: repeated?
 
       backup_stack_address = architecture.memory_layout[4].value;
       backup_data_address  = architecture.memory_layout[3].value;
+
+      if (architecture.interrupts?.enabled) enableInterrupts();
 
       ret.token = "The selected architecture has been loaded correctly";
       ret.type  = "success";
@@ -362,7 +364,7 @@ function assembly_compiler()
 
         /* Google Analytics */
         creator_ga('compile', 'compile.assembly');
-        
+
         instructions = [];
         instructions_tag = [];
         tag_instructions = {};
@@ -383,7 +385,7 @@ function assembly_compiler()
           for(var i = 0; i < update_binary.instructions_binary.length; i++){
 
             pc=pc+(architecture.instructions[i].nwords*4); //PRUEBA
-            
+
             instructions.push(update_binary.instructions_binary[i]);
             if(i === 0){
               instructions[instructions.length-1].hide = false;
@@ -422,7 +424,7 @@ function assembly_compiler()
         {
           for (var j = 0; j < architecture.components[i].elements.length; j++)
           {
-            if (architecture.components[i].elements[j].properties.includes("program_counter")) 
+            if (architecture.components[i].elements[j].properties.includes("program_counter"))
             {
               architecture.components[i].elements[j].value          = bi_intToBigInt(address,10) ;
               architecture.components[i].elements[j].default_value  = bi_intToBigInt(address,10) ;
@@ -916,7 +918,7 @@ function assembly_compiler()
 
 
         // Check for overlap
-/* 
+/*
  * TODO: migrate to new memory model
  *
         if (memory[memory_hash[0]].length > 0)
@@ -1820,7 +1822,7 @@ function data_segment_compiler()
                   console_log("token: " + token);
 
                   console_log("align Terminado");
-                  
+
                   j=0;
                   break;
 
@@ -2543,7 +2545,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
               if(architecture.instructions[i].fields[a].name == signatureRawParts[j]){
                 for(var z = 0; z < architecture_hash.length; z++){
                   for(var w = 0; w < architecture.components[z].elements.length; w++){
-                    if(architecture.components[z].elements[w].name.includes(token) !== false && architecture.components[z].type == "ctr_registers"){ //TODO: check
+                    if(architecture.components[z].elements[w].name.includes(token) !== false && architecture.components[z].type == "ctrl_registers"){
                       validReg = true;
                       regNum++;
 
@@ -2563,7 +2565,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                     else if(z == architecture_hash.length-1 && w == architecture.components[z].elements.length-1 && validReg === false){
                       return packCompileError('m4', token, 'error', "danger") ;
                     }
-                    if(architecture.components[z].type == "ctr_registers"){
+                    if(architecture.components[z].type == "ctrl_registers"){
                       regNum++;
                     }
                   }
@@ -3639,7 +3641,7 @@ function generateBinary(separated, startbit, stopbit, binary, inm,fieldsLenght, 
   if (!separated ||!separated[a]){
       binary = binary.substring(0, binary.length - (startbit + 1)) + inm.padStart(fieldsLength, "0") + binary.substring(binary.length - (stopbit ), binary.length);
   }
-  else 
+  else
   {
     // check if the value fit on the first segment
     let myInm = inm;
@@ -3652,7 +3654,7 @@ function generateBinary(separated, startbit, stopbit, binary, inm,fieldsLenght, 
         myInm.padStart(diff, "0") +
         binary.substring((binary.length - stb), binary.length);
         break;
-      } 
+      }
       else {
         let tmpinm = inm.substring(myInm.length - diff, myInm.length);
         binary = binary.substring(0, binary.length - (sb+1)) + tmpinm.padStart(diff, "0") + binary.substring(binary.length - stb, binary.length);

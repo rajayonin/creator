@@ -24,6 +24,18 @@
     "available": 1
   },
   {
+    "name": "mystuff",
+    "alias": [""],
+    "file": "RISC_V_RV32IMFD_Interrupts",
+    "img": "./images/mips_logo.png",
+    "alt":"",
+    "id": "select_confRISCVI",
+    "examples":["default"],
+    "description": "The MIPS processor was developed by Dr.John Hennessey and his graduate students at Stanford University in the early 1980s. It is currently one of the major processors in the embedded processor market.",
+    "guide":"",
+    "available": 1
+  },
+  {
     "name": "New Architecture",
     "alias": [],
     "file": "new_arch",

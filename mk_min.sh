@@ -29,6 +29,7 @@ cat js/creator_bigint.js \
     js/creator_registerfile.js \
     js/creator_memory.js \
     js/creator_compiler.js \
+    js/creator_interrupt.js \
     js/creator_executor.js \
     \
     components/general/creator_uielto_loading.js \
