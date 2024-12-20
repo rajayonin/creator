@@ -3154,7 +3154,7 @@ var compileError = {
   'm24': function(ret) { return "After the comma you should go a blank --> " + ret.token + "" },
 //'m25': function(ret) { return "Incorrect syntax "                          + ret.token + "" },
   'm26': function(ret) { return "Syntax error near line: "                   + ret.token + "" },
-  'm27': function(ret) { return "Please check instruction syntax, inmediate ranges, register name, etc."}
+  'm27': function(ret) { return "Please check instruction syntax, inmediate ranges, register name, etc."},
 } ;
 /*Promise*/
 let promise;
@@ -3208,6 +3208,8 @@ function load_arch_select ( cfg ) //TODO: repeated?
 
       backup_stack_address = architecture.memory_layout[4].value;
       backup_data_address  = architecture.memory_layout[3].value;
+
+      if (architecture.interrupts?.enabled) enableInterrupts();
 
       ret.token = "The selected architecture has been loaded correctly";
       ret.type  = "success";
@@ -3419,7 +3421,7 @@ function assembly_compiler()
 
         /* Google Analytics */
         creator_ga('compile', 'compile.assembly');
-        
+
         instructions = [];
         instructions_tag = [];
         tag_instructions = {};
@@ -3440,7 +3442,7 @@ function assembly_compiler()
           for(var i = 0; i < update_binary.instructions_binary.length; i++){
 
             pc=pc+(architecture.instructions[i].nwords*4); //PRUEBA
-            
+
             instructions.push(update_binary.instructions_binary[i]);
             if(i === 0){
               instructions[instructions.length-1].hide = false;
@@ -3479,7 +3481,7 @@ function assembly_compiler()
         {
           for (var j = 0; j < architecture.components[i].elements.length; j++)
           {
-            if (architecture.components[i].elements[j].properties.includes("program_counter")) 
+            if (architecture.components[i].elements[j].properties.includes("program_counter"))
             {
               architecture.components[i].elements[j].value          = bi_intToBigInt(address,10) ;
               architecture.components[i].elements[j].default_value  = bi_intToBigInt(address,10) ;
@@ -3973,7 +3975,7 @@ function assembly_compiler()
 
 
         // Check for overlap
-/* 
+/*
  * TODO: migrate to new memory model
  *
         if (memory[memory_hash[0]].length > 0)
@@ -4877,7 +4879,7 @@ function data_segment_compiler()
                   console_log("token: " + token);
 
                   console_log("align Terminado");
-                  
+
                   j=0;
                   break;
 
@@ -5600,7 +5602,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
               if(architecture.instructions[i].fields[a].name == signatureRawParts[j]){
                 for(var z = 0; z < architecture_hash.length; z++){
                   for(var w = 0; w < architecture.components[z].elements.length; w++){
-                    if(architecture.components[z].elements[w].name.includes(token) !== false && architecture.components[z].type == "ctr_registers"){ //TODO: check
+                    if(architecture.components[z].elements[w].name.includes(token) !== false && architecture.components[z].type == "ctrl_registers"){
                       validReg = true;
                       regNum++;
 
@@ -5620,7 +5622,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                     else if(z == architecture_hash.length-1 && w == architecture.components[z].elements.length-1 && validReg === false){
                       return packCompileError('m4', token, 'error', "danger") ;
                     }
-                    if(architecture.components[z].type == "ctr_registers"){
+                    if(architecture.components[z].type == "ctrl_registers"){
                       regNum++;
                     }
                   }
@@ -6696,7 +6698,7 @@ function generateBinary(separated, startbit, stopbit, binary, inm,fieldsLenght, 
   if (!separated ||!separated[a]){
       binary = binary.substring(0, binary.length - (startbit + 1)) + inm.padStart(fieldsLength, "0") + binary.substring(binary.length - (stopbit ), binary.length);
   }
-  else 
+  else
   {
     // check if the value fit on the first segment
     let myInm = inm;
@@ -6709,7 +6711,7 @@ function generateBinary(separated, startbit, stopbit, binary, inm,fieldsLenght, 
         myInm.padStart(diff, "0") +
         binary.substring((binary.length - stb), binary.length);
         break;
-      } 
+      }
       else {
         let tmpinm = inm.substring(myInm.length - diff, myInm.length);
         binary = binary.substring(0, binary.length - (sb+1)) + tmpinm.padStart(diff, "0") + binary.substring(binary.length - stb, binary.length);
@@ -6788,6 +6790,7 @@ function execute_instruction ( )
 
   do
   {
+    /* FETCH */
     console_log(execution_index);
     //console_log(architecture.components[0].elements[0].value); //TODO
     console_log(readRegister(0, 0));
@@ -6824,41 +6827,15 @@ function execute_instruction ( )
       }
     }
 
-    //Get execution index by PC
-    get_execution_index (draw);
+    /* INTERRUPTS */
 
-
-    //Ask interruption before execute intruction
-    var i_reg = crex_findReg_bytag ("event_cause");
-    if (i_reg.match != 0)
-    {
-      var i_reg_value = readRegister(i_reg.indexComp, i_reg.indexElem);
-      if (i_reg_value != 0)
-      {
-        console.log("Interruption detected");
-        //TODO: Print badget on instruction
-        draw.warning.push(execution_index);
-
-        //Save register PC (in EPC), STATUS
-        var epc_reg = crex_findReg_bytag ("exception_program_counter");
-        var pc_reg  = crex_findReg_bytag ("program_counter");
-
-        var pc_reg_value = readRegister(pc_reg.indexComp, pc_reg.indexElem);
-        writeRegister(pc_reg_value, epc_reg.indexComp, epc_reg.indexElem);
-
-        //TODO: get new PC
-        var handler_addres = 0;
-
-        //Load in PC new PC (associated handler) and modify execution_index
-        writeRegister(handler_addres, pc_reg.indexComp, pc_reg.indexElem);
-        get_execution_index (draw);
-
-        //Reset CAUSE register
-        console.log(i_reg);
-        writeRegister(0, i_reg.indexComp, i_reg.indexElem);
-      }
+    // handle interruptions
+    if (interruptsEnabled && checkInterrupt()) {
+      draw.warning.push(execution_index);  //Print badget on instruction
+      handleInterrupt();
     }
 
+    get_execution_index(draw);  // Get execution index by PC
 
     var instructionExec = instructions[execution_index].loaded;
     var instructionExecParts = instructionExec.split(' ');
@@ -6871,6 +6848,9 @@ function execute_instruction ( )
     var nwords;
     var auxDef;
     var type;
+
+
+    /* DECODE */
 
     //Search the instruction to execute
     //TODO: move the instruction identification to the compiler stage, binary not
@@ -6912,9 +6892,9 @@ function execute_instruction ( )
 
         var instruction_loaded    = architecture.instructions[i].signature_definition;
         var instruction_fields    = architecture.instructions[i].fields;
-        var instruction_nwords    = architecture.instructions[i].nwords;   
+        var instruction_nwords    = architecture.instructions[i].nwords;
 
-        for (var f = 0; f < instruction_fields.length; f++) 
+        for (var f = 0; f < instruction_fields.length; f++)
         {
           re = new RegExp("[Ff]"+f);
           var res = instruction_loaded.search(re);
@@ -6933,19 +6913,19 @@ function execute_instruction ( )
               case "INT-Reg":
                 var bin = instructionExec.substring(((instruction_nwords*31) - instruction_fields[f].startbit), ((instruction_nwords*32) - instruction_fields[f].stopbit));
                 value = get_register_binary ("int_registers", bin);
-                break; 
+                break;
               case "SFP-Reg":
                 var bin = instructionExec.substring(((instruction_nwords*31) - instruction_fields[f].startbit), ((instruction_nwords*32) - instruction_fields[f].stopbit));
                 value = get_register_binary ("fp_registers", bin);
-                break; 
+                break;
               case "DFP-Reg":
                 var bin = instructionExec.substring(((instruction_nwords*31) - instruction_fields[f].startbit), ((instruction_nwords*32) - instruction_fields[f].stopbit));
                 value = get_register_binary ("fp_registers", bin);
-                break; 
+                break;
               case "Ctrl-Reg":
                 var bin = instructionExec.substring(((instruction_nwords*31) - instruction_fields[f].startbit), ((instruction_nwords*32) - instruction_fields[f].stopbit));
                 value = get_register_binary ("ctrl_registers", bin);
-                break; 
+                break;
 
               case "inm-signed":
               case "inm-unsigned":
@@ -6968,7 +6948,7 @@ function execute_instruction ( )
                 value     = parseInt(bin, 2).toString(16) ;
                 value_len = Math.abs(instruction_fields[f].startbit - instruction_fields[f].stopbit) ;
                 value     = '0x' + value.padStart(value_len/4, '0') ;
-                break; 
+                break;
 
               default:
                 break
@@ -7025,6 +7005,7 @@ function execute_instruction ( )
     word_size = parseInt(architecture.arch_conf[1].value) / 8;
     writeRegister(readRegister(pc_reg.indexComp, pc_reg.indexElem) + (nwords * word_size), 0,0);
     console_log(auxDef);
+
 
 
     // preload
@@ -7175,7 +7156,22 @@ function execute_instruction ( )
     }
 
 
+
+    /* EXEC */
+
     try {
+      // check privileged instructions
+      let instructionDefinition;
+      for (var i = 0; i < architecture.instructions.length; i++) {
+        if (auxSig[0] === architecture.instructions[i].name) {
+          instructionDefinition = architecture.instructions[i];
+          break;
+        }
+      }
+      if (currentExecutionMode === ExecutionMode.User && instructionDefinition?.properties?.includes('privileged')) {
+        throw new Error("💀 Can't execute privileged instruction '" + architecture.instructions[i].name + "' in User mode.");
+      }
+
       var result = instructions[execution_index].preload(this);
       if ( (typeof result != "undefined") && (result.error) ) {
         return result;
@@ -7186,7 +7182,7 @@ function execute_instruction ( )
       var msg = '' ;
       if (e instanceof SyntaxError)
         msg = 'The definition of the instruction contains errors, please review it' + e.stack ; //TODO
-      else msg = e.msg ;
+      else msg = e.msg || e.message ;
 
       console_log("Error: " + e.stack);
       error = 1;
@@ -7337,6 +7333,8 @@ function reset ()
   architecture.memory_layout[4].value = backup_stack_address;
   architecture.memory_layout[3].value = backup_data_address;
 
+  if (architecture.interrupts?.enabled) enableInterrupts();
+
   // reset memory
   creator_memory_reset() ;
 
@@ -7377,7 +7375,7 @@ function get_execution_index ( draw )
   var pc_reg_value = readRegister(pc_reg.indexComp, pc_reg.indexElem);
   for (var i = 0; i < instructions.length; i++)
   {
-    if (parseInt(instructions[i].Address, 16) == pc_reg_value) 
+    if (parseInt(instructions[i].Address, 16) == pc_reg_value)
     {
       execution_index = i;
 
@@ -7417,7 +7415,7 @@ function writeStackLimit ( stackLimit )
     danger:  [],
     flash:   []
   } ;
-  
+
   if (stackLimit == null) {
       return ;
   }
@@ -7541,7 +7539,7 @@ function clk_cycles_update ( type )
 
       //Update CLK Cycles plot
       clk_cycles_value[0].data[i] ++;
-      
+
       total_clk_cycles++;
       if (typeof app !== "undefined") {
         app._data.total_clk_cycles++;
@@ -7721,6 +7719,97 @@ function get_number_binary (bin)
 {
   return "0x" + bin2hex(bin);
 }
+/*
+ *  Copyright 2018-2024 Felix Garcia Carballeira, Diego Camarmas Alonso, Alejandro Calderon Mateos
+ *
+ *  This file is part of CREATOR.
+ *
+ *  CREATOR is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  CREATOR is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with CREATOR.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+
+/* INTERRUPT HANDLING */
+
+let interruptsEnabled = false;
+
+const InterruptType = {
+  Software: 'InterruptType.Software',
+  Timer: 'InterruptType.Timer',
+  External: 'InterruptType.External',
+  EnvironmentCall: 'InterruptType.EnvironmentCall'
+};
+
+const ExecutionMode = {
+  User: 'ExecutionMode.User',
+  Kernel: 'ExecutionMode.Kernel'
+};
+
+let currentExecutionMode = ExecutionMode.User;
+
+
+/**
+* Enables interrupts
+*/
+function enableInterrupts() {
+  interruptsEnabled = true;
+  return eval(architecture.interrupts.interruptEnable);
+}
+
+
+/**
+* Disables interrupts
+*/
+function disableInterrupts() {
+  interruptsEnabled = false;
+  return eval(architecture.interrupts.interruptDisable);
+}
+
+
+/**
+* Checks if an interrupt has occured
+* @return {InterruptType, null}
+*/
+function checkInterrupt() {
+  return eval(architecture.interrupts.interruptCheck);
+}
+
+
+
+/**
+* Handles an interrupt
+*/
+function handleInterrupt() {
+  console_log("Interruption detected");
+  currentExecutionMode = ExecutionMode.Kernel;
+
+  // save PC to EPC
+  var epc_reg = crex_findReg_bytag("exception_program_counter");
+  var pc_reg  = crex_findReg_bytag("program_counter");
+
+  var pc_reg_value = readRegister(pc_reg.indexComp, pc_reg.indexElem);
+  writeRegister(pc_reg_value, epc_reg.indexComp, epc_reg.indexElem);
+
+  // jump to interruption handler
+  let handler_address = eval(architecture.interrupts.getHandlerAddr);
+  writeRegister(handler_address, pc_reg.indexComp, pc_reg.indexElem);
+
+  // clear interruption
+  eval(architecture.interrupts.clearInterrupt);
+
+}
+
 
 /*
  *  Copyright 2018-2025 Felix Garcia Carballeira, Diego Camarmas Alonso, Alejandro Calderon Mateos
