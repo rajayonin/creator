@@ -54,6 +54,10 @@ var code_assembly = '';
 var tokenIndex = 0 ;
 var nEnters = 0 ;
 var pc = 4; //PRUEBA
+/*Kernel Instructions memory address*/
+var kaddress;
+/*Kernel Data memory address*/
+var kdata_address;
 /*Instructions memory address*/
 var address;
 /*Data memory address*/
@@ -131,7 +135,7 @@ var load_binary = false;
 
 // Load architecture
 
-function load_arch_select ( cfg ) //TODO: repeated?
+function load_arch_select ( cfg )
 {
       var ret = {
                   errorcode: "",
@@ -141,16 +145,41 @@ function load_arch_select ( cfg ) //TODO: repeated?
                   status: "ok"
                 } ;
 
+
       var auxArchitecture = cfg;
       architecture = register_value_deserialize(auxArchitecture);
+
+    // deal with old architectures
+
+    // pre-kernel introduction
+    if (architecture.memory_layout.length == 6) {
+        architecture.memory_layout = [
+            {
+                "name": "ktext start",
+                "value": "0x00000000"
+            },
+            {
+                "name": "ktext end",
+                "value": "0x00000000"
+            },
+            {
+                "name": "kdata start",
+                "value": "0x00000000"
+            },
+            {
+                "name": "kdata end",
+                "value": "0x00000000"
+            }
+        ].concat(architecture.memory_layout);
+    }
 
       architecture_hash = [];
       for (var i = 0; i < architecture.components.length; i++) {
            architecture_hash.push({name: architecture.components[i].name, index: i});
       }
 
-      backup_stack_address = architecture.memory_layout[4].value;
-      backup_data_address  = architecture.memory_layout[3].value;
+      backup_stack_address = architecture.memory_layout[8].value;
+      backup_data_address  = architecture.memory_layout[7].value;
 
       if (architecture.interrupts?.enabled) enableInterrupts();
 
@@ -408,17 +437,19 @@ function assembly_compiler()
           }
         }
         else{
-          address = parseInt(architecture.memory_layout[0].value);
+          kaddress = parseInt(architecture.memory_layout[0].value);
+          address = parseInt(architecture.memory_layout[4].value);
         }
 
         var numBinaries = instructions.length;
 
 
         /*Allocation of memory addresses*/
-        architecture.memory_layout[4].value = backup_stack_address;
-        architecture.memory_layout[3].value = backup_data_address;
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        architecture.memory_layout[8].value = backup_stack_address;
+        architecture.memory_layout[7].value = backup_data_address;
+        kdata_address = parseInt(architecture.memory_layout[2].value);
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
         for (var i = 0; i < architecture.components.length; i++)
         {
@@ -478,11 +509,13 @@ function assembly_compiler()
           {
             if (token == architecture.directives[i].name)
             {
+              console_log(architecture.directives[i].action);
+              let isKernel = architecture.directives[i].action.startsWith("kernel");
               switch(architecture.directives[i].action)
               {
+                case "kernel_data_segment":
                 case "data_segment":
-                  console_log("data_segment");
-                  ret = data_segment_compiler();
+                  ret = data_segment_compiler(isKernel);
                   if (ret.status == "ok") {
                       change = true;
                   }
@@ -501,9 +534,9 @@ function assembly_compiler()
                   }
                   break;
 
+                case "kernel_code_segment":
                 case "code_segment":
-                  console_log("code_segment") ;
-                  ret = code_segment_compiler();
+                  ret = code_segment_compiler(isKernel);
                   if (ret.status == "ok") {
                       change = true;
                   }
@@ -921,9 +954,9 @@ function assembly_compiler()
 /*
  * TODO: migrate to new memory model
  *
-        if (memory[memory_hash[0]].length > 0)
+        if (memory[memory_hash[3]].length > 0)
         {
-          if (memory[memory_hash[0]][memory[memory_hash[0]].length-1].Binary[3].Addr > architecture.memory_layout[3].value) {
+          if (memory[memory_hash[3]][memory[memory_hash[3]].length-1].Binary[3].Addr > architecture.memory_layout[7].value) {
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -939,9 +972,9 @@ function assembly_compiler()
           }
         }
 
-        if (memory[memory_hash[1]].length > 0)
+        if (memory[memory_hash[2]].length > 0)
         {
-          if(memory[memory_hash[1]][memory[memory_hash[1]].length-1].Binary[3].Addr > architecture.memory_layout[1].value){
+          if(memory[memory_hash[2]][memory[memory_hash[2]].length-1].Binary[3].Addr > architecture.memory_layout[5].value){
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -1007,9 +1040,11 @@ function assembly_compiler()
         /* Initialize stack */
         writeMemory("00", parseInt(stack_address), "word") ;
 
-        address = parseInt(architecture.memory_layout[0].value);
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        kaddress = parseInt(architecture.memory_layout[0].value);
+        kdata_address = parseInt(architecture.memory_layout[2].value);
+        address = parseInt(architecture.memory_layout[4].value);
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
   // save current value as default values for reset()...
         creator_memory_prereset() ;
@@ -1018,7 +1053,7 @@ function assembly_compiler()
 }
 
 /*Compile data segment*/
-function data_segment_compiler()
+function data_segment_compiler(kernel = false)
 {
   var ret = {
           errorcode: "",
@@ -1160,12 +1195,13 @@ function data_segment_compiler()
 
                     console_log(auxTokenString)
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "byte") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "byte") ;
                     if (r.msg != "") {
                       return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("byte Terminado");
@@ -1244,12 +1280,13 @@ function data_segment_compiler()
 
                     console_log(auxTokenString)
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "half") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "half") ;
                     if (r.msg != "") {
                         return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("half Terminado");
@@ -1325,12 +1362,13 @@ function data_segment_compiler()
 
                     console_log(auxTokenString);
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "word") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "word") ;
                     if (r.msg != "") {
                         return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("word Terminado");
@@ -1407,12 +1445,13 @@ function data_segment_compiler()
                       auxTokenString = auxTokenString.substring(auxTokenString.length-(2*parseInt(architecture.directives[j].size)), auxTokenString.length);
                     }
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "double_word") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, (parseInt(auxTokenString, 16) >> 0), "double_word") ;
                     if (r.msg != "") {
                         return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("double word Terminado");
@@ -1508,12 +1547,13 @@ function data_segment_compiler()
 
                     console_log(auxTokenString);
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, token, "float") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, token, "float") ;
                     if (r.msg != "") {
                         return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("float Terminado");
@@ -1603,12 +1643,13 @@ function data_segment_compiler()
 
                     console_log(auxTokenString);
 
-                    var r = creator_memory_data_compiler(data_address, auxTokenString, parseInt(architecture.directives[j].size), label, token, "double") ;
+                    var r = creator_memory_data_compiler(kernel ? kdata_address : data_address, auxTokenString, parseInt(architecture.directives[j].size), label, token, "double") ;
                     if (r.msg != "") {
                       return packCompileError(r.msg, "", 'error', "danger") ;
                     }
 
-                    data_address = r.data_address ;
+                    if (kernel) { kdata_address = r.data_address ; }
+                    else { data_address = r.data_address ; }
                     label = null;
 
                     console_log("double Terminado");
@@ -1666,7 +1707,7 @@ function data_segment_compiler()
                       break;
                     }
 
-                    data_address = creator_memory_storestring(string, string.length, data_address, label, "ascii", align);
+                    data_address = creator_memory_storestring(string, string.length, kernel ? kdata_address : data_address, label, "ascii", align);
 
                     console_log("ascii_not_null_end Terminado");
 
@@ -1728,7 +1769,7 @@ function data_segment_compiler()
                       return packCompileError('m17', "", 'error', "danger") ;
                     }
 
-                    data_address = creator_memory_storestring(string, string.length, data_address, label, "asciiz", align) + 1;
+                    data_address = creator_memory_storestring(string, string.length, kernel ? kdata_address : data_address, label, "asciiz", align) + 1;
 
                     console_log("ascii_null_end Terminado");
 
@@ -1779,7 +1820,7 @@ function data_segment_compiler()
                   }
 
                   var size = parseInt(token) * parseInt(architecture.directives[j].size);
-                  data_address = creator_memory_storestring(size, size, data_address, label, "space", align);
+                  data_address = creator_memory_storestring(size, size, kernel ? kdata_address : data_address, label, "space", align);
 
                   next_token();
                   token = get_token();
@@ -1846,7 +1887,7 @@ function data_segment_compiler()
 }
 
 /* Compile text segment */
-function code_segment_compiler()
+function code_segment_compiler(kernel = false)
 {
   var ret = {
           errorcode: "",
@@ -1935,7 +1976,7 @@ function code_segment_compiler()
                         instIndex = i;
                     }
                   }
-                  instruction_compiler("nop", "nop", label, tokenIndex, false, 0, instInit, instIndex, false);
+                  instruction_compiler("nop", "nop", label, tokenIndex, false, 0, instInit, instIndex, false, kernel);
                   end = true;
                   found = true;
               }
@@ -1990,7 +2031,7 @@ function code_segment_compiler()
               console_log(instruction);
               console_log(label);
 
-              ret = instruction_compiler(instruction, userInstruction, label, tokenIndex, false, 0, instInit, i, false);
+              ret = instruction_compiler(instruction, userInstruction, label, tokenIndex, false, 0, instInit, i, false, kernel);
               if (ret.status != 'ok'){
                   return ret ;
               }
@@ -2028,7 +2069,7 @@ function code_segment_compiler()
 
                   instruction = instruction + " " + token;
                 }
-                resultPseudo = pseudoinstruction_compiler(instruction, label, tokenIndex);
+                resultPseudo = pseudoinstruction_compiler(instruction, label, tokenIndex, kernel);
                 console_log(resultPseudo);
 
                 if (resultPseudo.status != 'ok') {
@@ -2143,7 +2184,7 @@ function code_segment_compiler()
 }
 
 /* Compile instruction */
-function instruction_compiler ( instruction, userInstruction, label, line, pending, pendingAddress, instInit, instIndex, isPseudo )
+function instruction_compiler ( instruction, userInstruction, label, line, pending, pendingAddress, instInit, instIndex, isPseudo, kernel = false )
 {
   var ret = {
           errorcode: "",
@@ -2263,10 +2304,10 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
               }
             }
             if(isPseudo === false){
-              ret = instruction_compiler(instruction, instruction, label, line, pending, pendingAddress, instInit, index, false);
+              ret = instruction_compiler(instruction, instruction, label, line, pending, pendingAddress, instInit, index, false, kernel);
             }
             else{
-              ret = instruction_compiler(instruction, userInstruction, label, line, pending, pendingAddress, instInit, index, false);
+              ret = instruction_compiler(instruction, userInstruction, label, line, pending, pendingAddress, instInit, index, false, kernel);
             }
             return ret;
           }
@@ -2293,7 +2334,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
               instruction = instruction + " " + token;
             }
             console_log(instruction);
-            resultPseudo = pseudoinstruction_compiler(instruction, label, tokenIndex);
+            resultPseudo = pseudoinstruction_compiler(instruction, label, tokenIndex, kernel);
 
             console_log(resultPseudo)
 
@@ -2591,7 +2632,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                 if(token.match(/^0x/)){
                   var value = token.split("x");
                   if(value[1].length*4 > fieldsLength){
-                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
 
                     console_log(resultPseudo);
 
@@ -2608,7 +2649,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                 }
                 else if (token.match(/^(\d)+\.(\d)+/)){
                   if(float2bin(parseFloat(token)).length > fieldsLength){
-                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
 
                     console_log(resultPseudo);
 
@@ -2654,7 +2695,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                     console_log(oriInstruction)
                     console_log(label)
                     console_log(line)
-                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                     console_log(resultPseudo);
 
                     if (resultPseudo.status != 'ok'){
@@ -2713,7 +2754,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                   var value = token.split("x");
                   if (value[1].length*4 > fieldsLength)
                   {
-                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
 
                       console_log(resultPseudo);
 
@@ -2731,7 +2772,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                 else if (token.match(/^(\d)+\.(\d)+/))
                 {
                   if (float2bin(parseFloat(token)).length > fieldsLength) {
-                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                       console_log(resultPseudo);
                       if (resultPseudo.status != 'ok') {
                           return resultPseudo ;
@@ -2772,7 +2813,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                     console_log(oriInstruction)
                     console_log(label)
                     console_log(line)
-                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                    resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                     console_log(resultPseudo);
                     if (resultPseudo.status != 'ok') {
                         return resultPseudo ;
@@ -2858,7 +2899,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                    var value = token.split("x");
                    if (value[1].length*4 > fieldsLength)
                    {
-                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                       console_log(resultPseudo);
                       if (resultPseudo.status != 'ok'){
                           return resultPseudo ;
@@ -2874,7 +2915,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                 else if (token.match(/^(\d)+\.(\d)+/)){
                   if (float2bin(parseFloat(token)).length > fieldsLength)
                   {
-                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                      console_log(resultPseudo);
                      if (resultPseudo.status != 'ok'){
                          return resultPseudo ;
@@ -2906,7 +2947,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                       console_log(oriInstruction)
                       console_log(label)
                       console_log(line)
-                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                       console_log(resultPseudo);
                       if (resultPseudo.status != 'ok') {
                           return resultPseudo ;
@@ -2955,7 +2996,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                   var value = token.split("x");
                   if (value[1].length*4 > fieldsLength)
                   {
-                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                      console_log(resultPseudo);
                      if (resultPseudo.status != 'ok'){
                          return resultPseudo ;
@@ -2971,7 +3012,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                 else if (token.match(/^(\d)+\.(\d)+/)){
                   if (float2bin(parseFloat(token)).length > fieldsLength)
                   {
-                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                     resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                      console_log(resultPseudo);
                      if (resultPseudo.status != 'ok'){
                          return resultPseudo ;
@@ -3003,7 +3044,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
                       console_log(oriInstruction)
                       console_log(label)
                       console_log(line)
-                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line);
+                      resultPseudo = pseudoinstruction_compiler(oriInstruction, label, line, kernel);
                       console_log(resultPseudo);
                       if (resultPseudo.status != 'ok'){
                           return resultPseudo ;
@@ -3091,18 +3132,23 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
         binary = binary + padding;
 
         var hex = bin2hex(binary);
-        var auxAddr = address;
+        var auxAddr = kernel ? kaddress : address;
 
         console_log(binary);
         console_log(bin2hex(binary));
 
-        pending_instructions.push({address: address, instruction: instruction, signature: signatureParts, signatureRaw: signatureRawParts, Label: label, binary: binary, startBit: startBit, stopBit: stopBit, visible: true, line: nEnters});
+        pending_instructions.push({address: auxAddr, instruction: instruction, signature: signatureParts, signatureRaw: signatureRawParts, Label: label, binary: binary, startBit: startBit, stopBit: stopBit, visible: true, line: nEnters});
 
         if(pending === false){
-          instructions.push({ Break: null, Address: "0x" + address.toString(16), Label: label , loaded: instruction, user: userInstruction, _rowVariant: '', visible: true, hide: false});
-          instructions_binary.push({ Break: null, Address: "0x" + address.toString(16), Label: label , loaded: binary, user: null, _rowVariant: '', visible: false});
+          instructions.push({ Break: null, Address: "0x" + auxAddr.toString(16), Label: label , loaded: instruction, user: userInstruction, _rowVariant: '', visible: true, hide: false});
+          instructions_binary.push({ Break: null, Address: "0x" + auxAddr.toString(16), Label: label , loaded: binary, user: null, _rowVariant: '', visible: false});
 
-          address = address + (4*architecture.instructions[i].nwords);
+          if (kernel) {
+             kaddress = kaddress + (4*architecture.instructions[i].nwords);
+          }
+          else {
+             address = address + (4*architecture.instructions[i].nwords);
+          }
         }
         else{
           for(var pos = 0; pos < instructions.length; pos++){
@@ -3116,7 +3162,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
           }
         }
 
-        console_log(address.toString(16));
+        console_log((kernel ? kaddress : address).toString(16));
         console_log(instructions);
 
         stopFor = true;
@@ -3136,16 +3182,21 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
 
           binary = binary + padding;
           var hex = bin2hex(binary);
-          var auxAddr = address;
+          var auxAddr = kernel ? kaddress : address;
 
           console_log(binary);
           console_log(bin2hex(binary));
 
           if(pending === false){
-            instructions.push({ Break: null, Address: "0x" + address.toString(16), Label: label , loaded: instruction, user: userInstruction, _rowVariant: '', visible: true, hide: false});
-            instructions_binary.push({ Break: null, Address: "0x" + address.toString(16), Label: label , loaded: binary, user: null, _rowVariant: '', visible: false});
+            instructions.push({ Break: null, Address: "0x" + auxAddr.toString(16), Label: label , loaded: instruction, user: userInstruction, _rowVariant: '', visible: true, hide: false});
+            instructions_binary.push({ Break: null, Address: "0x" + auxAddr.toString(16), Label: label , loaded: binary, user: null, _rowVariant: '', visible: false});
 
-            address = address + (4*architecture.instructions[i].nwords);
+            if (kernel) {
+               kaddress = kaddress + (4*architecture.instructions[i].nwords);
+            }
+            else {
+               address = address + (4*architecture.instructions[i].nwords);
+            }
           }
           else{
             for(var pos = 0; pos < instructions.length; pos++){
@@ -3161,7 +3212,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
 
           stopFor = true;
 
-          console_log(address.toString(16));
+          console_log((kernel ? kaddress : address).toString(16));
           console_log(instructions);
         }
       }
@@ -3172,7 +3223,7 @@ function instruction_compiler ( instruction, userInstruction, label, line, pendi
 }
 
 /*Compile pseudoinstructions*/
-function pseudoinstruction_compiler ( instruction, label, line )
+function pseudoinstruction_compiler ( instruction, label, line, kernel = false )
 {
   var ret = {
           errorcode: "",
@@ -3395,7 +3446,7 @@ function pseudoinstruction_compiler ( instruction, label, line )
         re = /reg\.pc/
         console_log(re);
         while (definition.search(re) != -1){
-          definition = definition.replace(re, "pc"); //PRUEBA
+          definition = definition.replace(re, address + word_size_bytes);
           console_log(definition);
         }
 
@@ -3464,10 +3515,10 @@ function pseudoinstruction_compiler ( instruction, label, line )
             for (var j = 0; j < instructions.length-1; j++){
               var aux;
               if(j === 0){
-                aux = "ret=instruction_compiler('" + instructions[j] + "','" + instruction + "','" + label + "'," + line + ", false, 0, null, null, true)\nif(ret.status != 'ok'){error = true}";
+                aux = "ret=instruction_compiler('" + instructions[j] + "','" + instruction + "','" + label + "'," + line + ", false, 0, null, null, true," + kernel + ")\nif(ret.status != 'ok'){error = true}";
               }
               else{
-                aux = "ret=instruction_compiler('" + instructions[j] + "','', ''," + line + ", false, 0, null, null, true)\nif(ret.status != 'ok'){error = true}";
+                aux = "ret=instruction_compiler('" + instructions[j] + "','', ''," + line + ", false, 0, null, null, true," + kernel + ")\nif(ret.status != 'ok'){error = true}";
               }
               definition = definition.replace(instructions[j]+";", aux+";\n");
             }
@@ -3480,10 +3531,10 @@ function pseudoinstruction_compiler ( instruction, label, line )
           for (var j = 0; j < instructions.length-1; j++){
             var aux;
             if(j == 0){
-              aux = "ret=instruction_compiler('" + instructions[j] + "','" + instruction + "','" + label + "'," + line + ", false, 0, null, null, true)\nif(ret.status != 'ok'){error = true}";
+              aux = "ret=instruction_compiler('" + instructions[j] + "','" + instruction + "','" + label + "'," + line + ", false, 0, null, null, true," + kernel + ")\nif(ret.status != 'ok'){error = true}";
             }
             else{
-              aux = "ret=instruction_compiler('" + instructions[j] + "','', ''," + line + ", false, 0, null, null, true)\nif(ret.status != 'ok'){error = true}";
+              aux = "ret=instruction_compiler('" + instructions[j] + "','', ''," + line + ", false, 0, null, null, true," + kernel + ")\nif(ret.status != 'ok'){error = true}";
             }
             definition = definition.replace(instructions[j]+";", aux+";\n");
           }

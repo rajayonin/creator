@@ -6842,7 +6842,7 @@
           "type": "inm-unsigned"
         }
       ],
-      "definition": "no_ret_op{tmp=Field.2.(31,0).int - reg.pc;\ntmp_hi='0x'+(((tmp&0xFFFFF000)>>12) + ((tmp&0x00000400)>>11)).toString(16);\ntmp_low='0x'+(tmp&0x00000FFF).toString(16)};\nauipc rd op{tmp_hi};\naddi rd rd op{tmp_low};"
+      "definition": "no_ret_op{delta=Field.2.(31,0).int - reg.pc;\ndelta_low=delta&0xFFF;\ndelta_low=delta_low>0x7FF? delta_low - 0x1000 : delta_low;\ndelta_hi=(delta - delta_low)>>12};\nauipc rd op{delta_hi};\naddi rd rd op{delta_low};"
     },
     {
       "name": "li",
@@ -7120,6 +7120,22 @@
     }
   ],
   "memory_layout": [
+    {
+      "name": "ktext start",
+      "value": "0x00000000"
+    },
+    {
+      "name": "ktext end",
+      "value": "0x00000000"
+    },
+    {
+      "name": "kdata start",
+      "value": "0x00000000"
+    },
+    {
+      "name": "kdata end",
+      "value": "0x00000000"
+    },
     {
       "name": "text start",
       "value": "0x00000000"

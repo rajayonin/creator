@@ -1,8 +1,7 @@
-.data
+.kdata
 
-.text
-
-rti:   			# load mcause to t0
+.ktext
+     			# load mcause to t0
                 csrrw MCAUSE t0
                 csrrw MSCRATCH t1  # swap t1 w/ mscratch
 
@@ -22,6 +21,9 @@ rti_end:		csrrw MCAUSE t0  # restore t0
 				csrrw MSCRATCH t1  # restore t1
 				mret
 
+.data
+
+.text
 
 main:  			li a7 1
 				li a0 69

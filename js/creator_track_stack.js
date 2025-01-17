@@ -86,8 +86,8 @@ function track_stack_enter ( function_name )
         function_name:          function_name,
         begin_caller:           track_stack_getTop().val.begin_callee, // llamante: FFFFFFFC, FFFFFFF0
         end_caller:             track_stack_getTop().val.end_callee,   // llamante: FFFFFFF0, FFFFFF00
-        begin_callee:           architecture.memory_layout[4].value,   // llamado:  FFFFFFF0, FFFFFF00
-        end_callee:             architecture.memory_layout[4].value    // llamado:  FFFFFFF0, FFFFFF00
+        begin_callee:           architecture.memory_layout[8].value,   // llamado:  FFFFFFF0, FFFFFF00
+        end_callee:             architecture.memory_layout[8].value    // llamado:  FFFFFFF0, FFFFFF00
     };
 
     track_stack_limits.push(new_elto);
@@ -154,10 +154,10 @@ function track_stack_getTop()
     var ret = {
         ok: true,
         val: {
-            begin_caller: architecture.memory_layout[4].value,
-            end_caller: architecture.memory_layout[4].value,
-            begin_callee: architecture.memory_layout[4].value,
-            end_callee: architecture.memory_layout[4].value
+            begin_caller: architecture.memory_layout[8].value,
+            end_caller: architecture.memory_layout[8].value,
+            begin_callee: architecture.memory_layout[8].value,
+            end_callee: architecture.memory_layout[8].value
         },
         msg: ""
     };
@@ -173,7 +173,7 @@ function track_stack_getTop()
     // return the last element in the array
     ret.val = track_stack_limits[track_stack_limits.length - 1];
     if (typeof ret.val.begin_caller === "undefined"){
-        ret.val.begin_caller = architecture.memory_layout[4].value;
+        ret.val.begin_caller = architecture.memory_layout[8].value;
     }
 
     return ret;
@@ -252,10 +252,10 @@ function track_stack_reset()
         app._data.track_stack_names = track_stack_names;
         app._data.callee_subrutine  = track_stack_names[track_stack_names.length - 1];
         app._data.caller_subrutine  = "";
-        app._data.begin_caller      = architecture.memory_layout[4].value;
-        app._data.end_caller        = architecture.memory_layout[4].value;
-        app._data.begin_callee      = architecture.memory_layout[4].value;
-        app._data.end_callee        = architecture.memory_layout[4].value;
+        app._data.begin_caller      = architecture.memory_layout[8].value;
+        app._data.end_caller        = architecture.memory_layout[8].value;
+        app._data.begin_callee      = architecture.memory_layout[8].value;
+        app._data.end_callee        = architecture.memory_layout[8].value;
     }
 
     return ret ;
