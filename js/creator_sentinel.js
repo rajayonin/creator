@@ -153,7 +153,7 @@ function creator_callstack_enter ( function_name )
 
     var new_elto = {
         function_name:          function_name,
-        enter_stack_pointer:    architecture.memory_layout[4].value,
+        enter_stack_pointer:    architecture.memory_layout[8].value,
         register_sm:           arr_sm,
         register_value:        arr_value,
         register_size_write:   arr_size_write,
@@ -191,7 +191,7 @@ function creator_callstack_leave()
     //check sp that points to corresponding address
     if (ret.ok)
     {
-        if (architecture.memory_layout[4].value != last_elto.enter_stack_pointer)
+        if (architecture.memory_layout[8].value != last_elto.enter_stack_pointer)
         {
             ret.ok  = false;
             ret.msg = "Stack memory has not been released successfully";
