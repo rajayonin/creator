@@ -7121,6 +7121,22 @@
   ],
   "memory_layout": [
     {
+      "name": "ktext start",
+      "value": "0x00000000"
+    },
+    {
+      "name": "ktext end",
+      "value": "0x00000000"
+    },
+    {
+      "name": "kdata start",
+      "value": "0x00000000"
+    },
+    {
+      "name": "kdata end",
+      "value": "0x00000000"
+    },
+    {
       "name": "text start",
       "value": "0x00000000"
     },
