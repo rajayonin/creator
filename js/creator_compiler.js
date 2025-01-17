@@ -149,8 +149,8 @@ function load_arch_select ( cfg ) //TODO: repeated?
            architecture_hash.push({name: architecture.components[i].name, index: i});
       }
 
-      backup_stack_address = architecture.memory_layout[4].value;
-      backup_data_address  = architecture.memory_layout[3].value;
+      backup_stack_address = architecture.memory_layout[8].value;
+      backup_data_address  = architecture.memory_layout[7].value;
 
       if (architecture.interrupts?.enabled) enableInterrupts();
 
@@ -408,17 +408,17 @@ function assembly_compiler()
           }
         }
         else{
-          address = parseInt(architecture.memory_layout[0].value);
+          address = parseInt(architecture.memory_layout[4].value);
         }
 
         var numBinaries = instructions.length;
 
 
         /*Allocation of memory addresses*/
-        architecture.memory_layout[4].value = backup_stack_address;
-        architecture.memory_layout[3].value = backup_data_address;
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        architecture.memory_layout[8].value = backup_stack_address;
+        architecture.memory_layout[7].value = backup_data_address;
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
         for (var i = 0; i < architecture.components.length; i++)
         {
@@ -478,10 +478,11 @@ function assembly_compiler()
           {
             if (token == architecture.directives[i].name)
             {
+              console_log(architecture.directives[i].action);
               switch(architecture.directives[i].action)
               {
+                case "kernel_data_segment":
                 case "data_segment":
-                  console_log("data_segment");
                   ret = data_segment_compiler();
                   if (ret.status == "ok") {
                       change = true;
@@ -501,8 +502,8 @@ function assembly_compiler()
                   }
                   break;
 
+                case "kernel_code_segment":
                 case "code_segment":
-                  console_log("code_segment") ;
                   ret = code_segment_compiler();
                   if (ret.status == "ok") {
                       change = true;
@@ -921,9 +922,9 @@ function assembly_compiler()
 /*
  * TODO: migrate to new memory model
  *
-        if (memory[memory_hash[0]].length > 0)
+        if (memory[memory_hash[3]].length > 0)
         {
-          if (memory[memory_hash[0]][memory[memory_hash[0]].length-1].Binary[3].Addr > architecture.memory_layout[3].value) {
+          if (memory[memory_hash[3]][memory[memory_hash[3]].length-1].Binary[3].Addr > architecture.memory_layout[7].value) {
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -939,9 +940,9 @@ function assembly_compiler()
           }
         }
 
-        if (memory[memory_hash[1]].length > 0)
+        if (memory[memory_hash[2]].length > 0)
         {
-          if(memory[memory_hash[1]][memory[memory_hash[1]].length-1].Binary[3].Addr > architecture.memory_layout[1].value){
+          if(memory[memory_hash[2]][memory[memory_hash[2]].length-1].Binary[3].Addr > architecture.memory_layout[5].value){
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -1007,9 +1008,9 @@ function assembly_compiler()
         /* Initialize stack */
         writeMemory("00", parseInt(stack_address), "word") ;
 
-        address = parseInt(architecture.memory_layout[0].value);
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        address = parseInt(architecture.memory_layout[4].value);
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
   // save current value as default values for reset()...
         creator_memory_prereset() ;

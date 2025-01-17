@@ -641,7 +641,7 @@ function creator_callstack_enter ( function_name )
 
     var new_elto = {
         function_name:          function_name,
-        enter_stack_pointer:    architecture.memory_layout[4].value,
+        enter_stack_pointer:    architecture.memory_layout[8].value,
         register_sm:           arr_sm,
         register_value:        arr_value,
         register_size_write:   arr_size_write,
@@ -679,7 +679,7 @@ function creator_callstack_leave()
     //check sp that points to corresponding address
     if (ret.ok)
     {
-        if (architecture.memory_layout[4].value != last_elto.enter_stack_pointer)
+        if (architecture.memory_layout[8].value != last_elto.enter_stack_pointer)
         {
             ret.ok  = false;
             ret.msg = "Stack memory has not been released successfully";
@@ -1082,7 +1082,7 @@ function capi_mem_write ( addr, value, type, reg_name )
 
 	// 2) check address is into text segment
 	var addr_16 = parseInt(addr, 16);
-	if((addr_16 >= parseInt(architecture.memory_layout[0].value)) && (addr_16 <= parseInt(architecture.memory_layout[1].value)))
+	if((addr_16 >= parseInt(architecture.memory_layout[4].value)) && (addr_16 <= parseInt(architecture.memory_layout[5].value)))
     {
         capi_raise('Segmentation fault. You tried to write in the text segment');
         creator_executor_exit( true );
@@ -1129,7 +1129,7 @@ function capi_mem_read ( addr, type, reg_name )
 
 	// 2) check address is into text segment
 	var addr_16 = parseInt(addr, 16);
-	if((addr_16 >= parseInt(architecture.memory_layout[0].value)) && (addr_16 <= parseInt(architecture.memory_layout[1].value)))
+	if((addr_16 >= parseInt(architecture.memory_layout[4].value)) && (addr_16 <= parseInt(architecture.memory_layout[5].value)))
     {
         capi_raise('Segmentation fault. You tried to read in the text segment');
         creator_executor_exit( true );
@@ -1642,8 +1642,8 @@ function track_stack_enter ( function_name )
         function_name:          function_name,
         begin_caller:           track_stack_getTop().val.begin_callee, // llamante: FFFFFFFC, FFFFFFF0
         end_caller:             track_stack_getTop().val.end_callee,   // llamante: FFFFFFF0, FFFFFF00
-        begin_callee:           architecture.memory_layout[4].value,   // llamado:  FFFFFFF0, FFFFFF00
-        end_callee:             architecture.memory_layout[4].value    // llamado:  FFFFFFF0, FFFFFF00
+        begin_callee:           architecture.memory_layout[8].value,   // llamado:  FFFFFFF0, FFFFFF00
+        end_callee:             architecture.memory_layout[8].value    // llamado:  FFFFFFF0, FFFFFF00
     };
 
     track_stack_limits.push(new_elto);
@@ -1710,10 +1710,10 @@ function track_stack_getTop()
     var ret = {
         ok: true,
         val: {
-            begin_caller: architecture.memory_layout[4].value,
-            end_caller: architecture.memory_layout[4].value,
-            begin_callee: architecture.memory_layout[4].value,
-            end_callee: architecture.memory_layout[4].value
+            begin_caller: architecture.memory_layout[8].value,
+            end_caller: architecture.memory_layout[8].value,
+            begin_callee: architecture.memory_layout[8].value,
+            end_callee: architecture.memory_layout[8].value
         },
         msg: ""
     };
@@ -1729,7 +1729,7 @@ function track_stack_getTop()
     // return the last element in the array
     ret.val = track_stack_limits[track_stack_limits.length - 1];
     if (typeof ret.val.begin_caller === "undefined"){
-        ret.val.begin_caller = architecture.memory_layout[4].value;
+        ret.val.begin_caller = architecture.memory_layout[8].value;
     }
 
     return ret;
@@ -1808,10 +1808,10 @@ function track_stack_reset()
         app._data.track_stack_names = track_stack_names;
         app._data.callee_subrutine  = track_stack_names[track_stack_names.length - 1];
         app._data.caller_subrutine  = "";
-        app._data.begin_caller      = architecture.memory_layout[4].value;
-        app._data.end_caller        = architecture.memory_layout[4].value;
-        app._data.begin_callee      = architecture.memory_layout[4].value;
-        app._data.end_callee        = architecture.memory_layout[4].value;
+        app._data.begin_caller      = architecture.memory_layout[8].value;
+        app._data.end_caller        = architecture.memory_layout[8].value;
+        app._data.begin_callee      = architecture.memory_layout[8].value;
+        app._data.end_callee        = architecture.memory_layout[8].value;
     }
 
     return ret ;
@@ -2000,7 +2000,7 @@ function writeRegister ( value, indexComp, indexElem, register_type )
       creator_callstack_writeRegister(indexComp, indexElem);
 
       if ((architecture.components[indexComp].elements[indexElem].properties.includes('stack_pointer') !== false) &&
-          (value != parseInt(architecture.memory_layout[4].value))) {
+          (value != parseInt(architecture.memory_layout[8].value))) {
             writeStackLimit(parseInt(bi_intToBigInt(value,10)));
       }
 
@@ -2028,7 +2028,7 @@ function writeRegister ( value, indexComp, indexElem, register_type )
       creator_callstack_writeRegister(indexComp, indexElem);
 
       if ((architecture.components[indexComp].elements[indexElem].properties.includes('stack_pointer') !== false) &&
-          (value != parseInt(architecture.memory_layout[4].value))) {
+          (value != parseInt(architecture.memory_layout[8].value))) {
             writeStackLimit(parseFloat(value));
       }
 
@@ -2129,6 +2129,7 @@ function updateSimple ( comp, elem )
     }
   }
 }
+
 /*
  *  Copyright 2018-2025 Felix Garcia Carballeira, Diego Camarmas Alonso, Alejandro Calderon Mateos
  *
@@ -2172,7 +2173,7 @@ var main_memory_datatypes = {} ;
     //    ...
     //  }
 
-var memory_hash = [ "data_memory", "instructions_memory", "stack_memory" ] ;
+var memory_hash = [ "kdata_memory", "kinstructions_memory", "instructions_memory", "data_memory", "stack_memory" ] ;
     // main segments
 
 
@@ -2743,16 +2744,16 @@ function creator_memory_zerofill ( new_addr, new_size )
 function creator_memory_alloc ( new_size )
 {
         // get align address
-        var new_addr = parseInt(architecture.memory_layout[3].value) + 1 ;
+        var new_addr = parseInt(architecture.memory_layout[7].value) + 1 ;
         var algn = creator_memory_alignelto(new_addr, new_size) ;
 
         // fill memory
         creator_memory_zerofill(algn.new_addr, algn.new_size) ;
 
         // new segment limit
-        architecture.memory_layout[3].value ="0x" + ((algn.new_addr + new_size).toString(16)).padStart(8, "0").toUpperCase();
+        architecture.memory_layout[7].value ="0x" + ((algn.new_addr + new_size).toString(16)).padStart(8, "0").toUpperCase();
         if (typeof app !== "undefined") {
-            app.architecture.memory_layout[3].value = "0x" + ((algn.new_addr + new_size).toString(16)).padStart(8, "0").toUpperCase();
+            app.architecture.memory_layout[7].value = "0x" + ((algn.new_addr + new_size).toString(16)).padStart(8, "0").toUpperCase();
         }
 
         return algn.new_addr ;
@@ -2983,19 +2984,32 @@ function creator_memory_clear ( )
 
 function creator_memory_is_address_inside_segment ( segment_name, addr )
 {
-         var elto_inside_segment = false ;
+    var elto_inside_segment = false ;
 
-         if (segment_name == "instructions_memory") {
+    switch (segment_name) {
+
+        case "kdata_memory":
              elto_inside_segment = ((addr >= parseInt(architecture.memory_layout[0].value)) && (addr <= parseInt(architecture.memory_layout[1].value))) ;
-         }
-         if (segment_name == "data_memory") {
-             elto_inside_segment = ((addr >= parseInt(architecture.memory_layout[2].value)) && (addr <= parseInt(architecture.memory_layout[3].value))) ;
-         }
-         if (segment_name == "stack_memory") {
-             elto_inside_segment = (addr >= parseInt(architecture.memory_layout[3].value)) ;
-         }
+             break;
 
-         return elto_inside_segment ;
+        case "kinstuctions_memory":
+             elto_inside_segment = ((addr >= parseInt(architecture.memory_layout[2].value)) && (addr <= parseInt(architecture.memory_layout[3].value))) ;
+
+        case "instructions_memory":
+             elto_inside_segment = ((addr >= parseInt(architecture.memory_layout[4].value)) && (addr <= parseInt(architecture.memory_layout[5].value))) ;
+             break;
+
+        case "data_memory":
+             elto_inside_segment = ((addr >= parseInt(architecture.memory_layout[6].value)) && (addr <= parseInt(architecture.memory_layout[7].value))) ;
+             break;
+
+        case "stack_memory":
+             elto_inside_segment = (addr >= parseInt(architecture.memory_layout[7].value));
+             break;
+
+    }
+
+    return elto_inside_segment ;
 }
 
 function creator_memory_is_segment_empty ( segment_name )
@@ -3206,8 +3220,8 @@ function load_arch_select ( cfg ) //TODO: repeated?
            architecture_hash.push({name: architecture.components[i].name, index: i});
       }
 
-      backup_stack_address = architecture.memory_layout[4].value;
-      backup_data_address  = architecture.memory_layout[3].value;
+      backup_stack_address = architecture.memory_layout[8].value;
+      backup_data_address  = architecture.memory_layout[7].value;
 
       if (architecture.interrupts?.enabled) enableInterrupts();
 
@@ -3465,17 +3479,17 @@ function assembly_compiler()
           }
         }
         else{
-          address = parseInt(architecture.memory_layout[0].value);
+          address = parseInt(architecture.memory_layout[4].value);
         }
 
         var numBinaries = instructions.length;
 
 
         /*Allocation of memory addresses*/
-        architecture.memory_layout[4].value = backup_stack_address;
-        architecture.memory_layout[3].value = backup_data_address;
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        architecture.memory_layout[8].value = backup_stack_address;
+        architecture.memory_layout[7].value = backup_data_address;
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
         for (var i = 0; i < architecture.components.length; i++)
         {
@@ -3535,10 +3549,11 @@ function assembly_compiler()
           {
             if (token == architecture.directives[i].name)
             {
+              console_log(architecture.directives[i].action);
               switch(architecture.directives[i].action)
               {
+                case "kernel_data_segment":
                 case "data_segment":
-                  console_log("data_segment");
                   ret = data_segment_compiler();
                   if (ret.status == "ok") {
                       change = true;
@@ -3558,8 +3573,8 @@ function assembly_compiler()
                   }
                   break;
 
+                case "kernel_code_segment":
                 case "code_segment":
-                  console_log("code_segment") ;
                   ret = code_segment_compiler();
                   if (ret.status == "ok") {
                       change = true;
@@ -3978,9 +3993,9 @@ function assembly_compiler()
 /*
  * TODO: migrate to new memory model
  *
-        if (memory[memory_hash[0]].length > 0)
+        if (memory[memory_hash[3]].length > 0)
         {
-          if (memory[memory_hash[0]][memory[memory_hash[0]].length-1].Binary[3].Addr > architecture.memory_layout[3].value) {
+          if (memory[memory_hash[3]][memory[memory_hash[3]].length-1].Binary[3].Addr > architecture.memory_layout[7].value) {
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -3996,9 +4011,9 @@ function assembly_compiler()
           }
         }
 
-        if (memory[memory_hash[1]].length > 0)
+        if (memory[memory_hash[2]].length > 0)
         {
-          if(memory[memory_hash[1]][memory[memory_hash[1]].length-1].Binary[3].Addr > architecture.memory_layout[1].value){
+          if(memory[memory_hash[2]][memory[memory_hash[2]].length-1].Binary[3].Addr > architecture.memory_layout[5].value){
             //tokenIndex = 0;
             //nEnters = 0 ;
             instructions = [];
@@ -4064,9 +4079,9 @@ function assembly_compiler()
         /* Initialize stack */
         writeMemory("00", parseInt(stack_address), "word") ;
 
-        address = parseInt(architecture.memory_layout[0].value);
-        data_address = parseInt(architecture.memory_layout[2].value);
-        stack_address = parseInt(architecture.memory_layout[4].value);
+        address = parseInt(architecture.memory_layout[4].value);
+        data_address = parseInt(architecture.memory_layout[6].value);
+        stack_address = parseInt(architecture.memory_layout[8].value);
 
   // save current value as default values for reset()...
         creator_memory_prereset() ;
@@ -7330,8 +7345,8 @@ function reset ()
     }
   }
 
-  architecture.memory_layout[4].value = backup_stack_address;
-  architecture.memory_layout[3].value = backup_data_address;
+  architecture.memory_layout[8].value = backup_stack_address;
+  architecture.memory_layout[7].value = backup_data_address;
 
   if (architecture.interrupts?.enabled) enableInterrupts();
 
@@ -7419,25 +7434,25 @@ function writeStackLimit ( stackLimit )
   if (stackLimit == null) {
       return ;
   }
-  if (stackLimit <= parseInt(architecture.memory_layout[3].value) && stackLimit >= parseInt(parseInt(architecture.memory_layout[2].value)))
+  if (stackLimit <= parseInt(architecture.memory_layout[7].value) && stackLimit >= parseInt(parseInt(architecture.memory_layout[6].value)))
   {
     draw.danger.push(execution_index);
     throw packExecute(true, 'Stack pointer cannot be placed in the data segment', 'danger', null);
   }
-  else if(stackLimit <= parseInt(architecture.memory_layout[1].value) && stackLimit >= parseInt(architecture.memory_layout[0].value))
+  else if(stackLimit <= parseInt(architecture.memory_layout[5].value) && stackLimit >= parseInt(architecture.memory_layout[4].value))
   {
     draw.danger.push(execution_index);
     throw packExecute(true, 'Stack pointer cannot be placed in the text segment', 'danger', null);
   }
   else
   {
-    var diff = parseInt(architecture.memory_layout[4].value) - stackLimit ;
+    var diff = parseInt(architecture.memory_layout[8].value) - stackLimit ;
     if (diff > 0) {
       creator_memory_zerofill(stackLimit, diff) ;
     }
 
     track_stack_setsp(stackLimit);
-    architecture.memory_layout[4].value = "0x" + (stackLimit.toString(16)).padStart(8, "0").toUpperCase();
+    architecture.memory_layout[8].value = "0x" + (stackLimit.toString(16)).padStart(8, "0").toUpperCase();
   }
 }
 
@@ -7992,7 +8007,7 @@ function get_state ( )
     var addrs = main_memory_get_addresses() ;
     for (var i=0; i<addrs.length; i++)
     {
-      if(addrs[i] >= parseInt(architecture.memory_layout[3].value)){
+      if(addrs[i] >= parseInt(architecture.memory_layout[7].value)){
         continue;
       }
 

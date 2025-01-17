@@ -189,8 +189,8 @@
                     }
 
                     //Define stack limits
-                    backup_stack_address = architecture.memory_layout[4].value;
-                    backup_data_address  = architecture.memory_layout[3].value;
+                    backup_stack_address = architecture.memory_layout[8].value;
+                    backup_data_address  = architecture.memory_layout[7].value;
 
                     //Load examples
                     if (load_associated_examples && typeof e.examples !== "undefined"){
