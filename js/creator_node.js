@@ -180,7 +180,7 @@ function get_state ( )
     var addrs = main_memory_get_addresses() ;
     for (var i=0; i<addrs.length; i++)
     {
-      if(addrs[i] >= parseInt(architecture.memory_layout[3].value)){
+      if(addrs[i] >= parseInt(architecture.memory_layout[7].value)){
         continue;
       }
 
