@@ -273,6 +273,7 @@ function main_memory_read_bydatatype ( addr, type )
 
           case 'w':
           case 'integer':
+          case 'int':
           case 'word':
                ret = "0x" + main_memory_read_nbytes(addr, word_size_bytes) ;
                ret = parseInt(ret, 16) ;
