@@ -35,7 +35,7 @@
 #### Executing locally from source
 You need to run the application inside a web server. The easiest way is to set up a small HTTP server with Python:
 ```
-python -m http.server 8080
+npm run serve
 ```
 
 This will open up the application in [localhost:8080](http://localhost:8080).
