@@ -1,4 +1,6 @@
 node_modules
+.vscode/
+
 js/min.creator_node.js
 js/min.creator_web.js
-.vscode/
+js/min.creator_node.js.map
